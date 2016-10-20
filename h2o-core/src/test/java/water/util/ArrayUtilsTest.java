@@ -1,16 +1,9 @@
 package water.util;
 
-import hex.CreateFrame;
-import hex.ToEigenVec;
-import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.hamcrest.CoreMatchers;
-import water.DKV;
-import water.Key;
 import water.TestUtil;
-import water.fvec.Frame;
-import water.fvec.Vec;
+
 import static org.junit.Assert.*;
 import static water.util.ArrayUtils.*;
 
@@ -181,5 +174,136 @@ public class ArrayUtilsTest extends TestUtil {
     assertEquals(0, countNonzeros(threeZeroes));
     double[] somenz = {-1.0, Double.MIN_VALUE, 0.0, Double.MAX_VALUE, 0.001, 0.0, 42.0};
     assertEquals(5, countNonzeros(somenz));
+  }
+  
+  private static int findEasy(long[] ys, long y) {
+    for (int i = 0; i < ys.length - 1 && y >= ys[i]; i++) {
+      if (y < ys[i+1]) return i;
+    }
+    return y < ys[0] ? -1 : ys.length - 1;
+  }
+
+  public int[] binarySearch(long[] ys, long y) {
+    if (y < ys[0]) return new int[] {-1, 0};
+    if (y >= ys[ys.length - 1]) return new int[] {ys.length - 1, 0};
+
+    int numhops = 0;
+    int lo=0, hi = ys.length - 1;
+    while( lo < hi-1 ) {
+      int mid = (hi+lo)>>>1;
+      if( y < ys[mid] ) hi = mid;
+      else                lo = mid;
+      numhops++;
+    }
+    
+    while( ys[lo+1] == y) lo++;
+    return new int[]{lo, numhops};
+  }
+  
+  int[] checkOne(long[] sut, long v, int[] stats) {
+    int[] found = gradientRangeSearch(sut, v);
+    assertEquals(findEasy(sut, v), found[0]);
+    int[] bsFound = binarySearch(sut, v);
+    assertEquals(bsFound[0], found[0]);
+//    if (bsFound[1] > 0 && bsFound[1]+1 < found[1]) System.out.println("lost at " + v + ": " + found[1] + " vs " + bsFound[1]);
+//    if (bsFound[1] > 0) assertTrue("lost at " + v + ": " + found[1] + " vs " + bsFound[1], bsFound[1] >= found[1]);
+    stats[0] += found[1];
+    stats[1] += bsFound[1];
+    stats[2] ++;
+    return stats;
+  }
+  
+  void report(String what, int[] stats, int size) {
+    double s0 = stats[0]*1.0/stats[2];
+    double s1 = stats[1]*1.0/stats[2];
+    System.out.println(String.format("%s: %d elements, %.2f vs %.2f", what, size, s0, s1));
+  }
+  
+  @Test public void testGradientSearch_almost_linear() {
+    long[] sut = new long[]{1, 999, 2002, 3001, 3999, 4100};
+    int[] stats = new int[]{0,0,0};
+    for (long i = 1; i <= 4100; i++) {
+      int[] res = checkOne(sut, i, stats);
+    }
+    report("Linear", stats, sut.length);
+    assertEquals(-1, gradientRangeSearch(sut, 0)[0]);
+    assertEquals(-1, gradientRangeSearch(sut, Long.MIN_VALUE)[0]);
+    assertEquals(5, gradientRangeSearch(sut, Long.MAX_VALUE)[0]);
+    assertEquals(5, gradientRangeSearch(sut, 4101)[0]);
+  }
+
+  @Test public void testGradientSearch_concave() {
+    long[] sut = new long[]{1, 10, 100, 1000, 10000, 100000, 1000000, 10000000L, 100000000L};
+    long delta = 1;
+
+    int[] stats = new int[]{0,0,0};
+    for (long i = 1; i <= 100000000L; i+=delta) {
+      checkOne(sut, i, stats);
+      if (i > 10000) delta = 1000;
+    }
+    report("Concave", stats, sut.length);
+    assertEquals(-1, gradientRangeSearch(sut, 0)[0]);
+    assertEquals(-1, gradientRangeSearch(sut, Long.MIN_VALUE)[0]);
+    assertEquals(8, gradientRangeSearch(sut, Long.MAX_VALUE)[0]);
+    assertEquals(8, gradientRangeSearch(sut, 100000000L)[0]);
+  }
+
+  @Test public void testGradientSearch_convex() {
+    long[] sut = new long[]{-100000000L, -10000000L, -1000000L, -100000L, -10000L, -1000L, -100L, -10L, -1L};
+    long delta = 1000;
+    int[] stats = new int[]{0,0,0};
+
+    for (long i = -100000001L; i < 1; i+=delta) {
+      checkOne(sut, i, stats);
+      if (i > -10000) delta = 1;
+    }
+    report("Convex", stats, sut.length);
+    assertEquals(8, gradientRangeSearch(sut, 0)[0]);
+    assertEquals(-1, gradientRangeSearch(sut, Long.MIN_VALUE)[0]);
+    assertEquals(8, gradientRangeSearch(sut, Long.MAX_VALUE)[0]);
+  }
+
+  @Test public void testGradientSearch_concave_then_convex() {
+    long[] sut = new long[]{1, 10, 100, 1000, 10000, 100000, 1000000, 10000000L, 100000000L, 110000000L, 111000000L, 111100000L, 111110000L, 111111000L, 111111100L, 111111110L, 111111111L};
+    long delta = 1;
+    int[] stats = new int[]{0,0,0};
+
+    for (long i = 1; i <= 111111111L; i+=delta) {
+      checkOne(sut, i, stats);
+      if (i > 10000) delta = 1000;
+    }
+    report("Concave/convex", stats, sut.length);
+  }
+
+  @Test public void testGradientSearch_convex_then_concave() {
+    long[] sut = new long[]{-100000000L, -10000000L, -1000000L, -100000L, -10000L, -1000L, -100L, -10L, -1L, 0, 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000L, 100000000L};
+    long delta = 1000;
+    int[] stats = new int[]{0,0,0};
+
+    for (long i = -100000001L; i < 100000000L; i+=delta) {
+      checkOne(sut, i, stats);
+      if (i > -10000) delta = 1;
+      if (i > 10000) delta = 1000;
+    }
+    report("Convex/concave", stats, sut.length);
+    assertEquals(9, gradientRangeSearch(sut, 0)[0]);
+    assertEquals(-1, gradientRangeSearch(sut, Long.MIN_VALUE)[0]);
+    assertEquals(18, gradientRangeSearch(sut, Long.MAX_VALUE)[0]);
+  }
+
+  @Test public void testGradientSearch_sine_plus_x() {
+    long[] sut = new long[10000];
+    for (int i = 0; i < 10000; i++) {
+      double x = Math.sin(i * Math.PI / 10000) * 5000 + i;
+      sut[i] = (long)x;
+    }
+
+    int[] stats = new int[]{0,0,0};
+    for (long i = 0; i < sut.length; i++) {
+      checkOne(sut, i, stats);
+    }
+    report("Sine", stats, sut.length);
+    assertEquals(-1, gradientRangeSearch(sut, Long.MIN_VALUE)[0]);
+    assertEquals(9999, gradientRangeSearch(sut, Long.MAX_VALUE)[0]);
   }
 }

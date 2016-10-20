@@ -672,6 +672,42 @@ public class ArrayUtils {
     }
     return -1;
   }
+  
+  public static int[] // for performance, return an array 
+  gradientRangeSearch(long[] ys, long y) {
+    int numhops = 0;
+    int low = 0;
+    int last = ys.length - 1;
+    int high = last;
+    while (low < high) {
+      numhops++;
+//      if (y % 777 == 0) System.out.println("At " + y + ", trying " + low + " and " + high);
+      int dx = high - low;
+      long lowVal = ys[low];
+      long hiVal = ys[high];
+      int mid1 = Math.max(low, Math.min(high-1, (int)((y - lowVal)*dx/(hiVal - lowVal) + low)));
+      int mid2 = (low + high)/2;
+      long midVal = ys[mid1];
+      if (midVal <= y) {
+        if (mid1 >= last || ys[mid1+1] > y) return new int[]{mid1, numhops}; 
+        else if (y <= ys[mid2]) {
+          low = mid1 + 1;
+          high = mid2;
+        } else {
+          low = Math.max(mid2, low+1);
+        }
+      } else /*midVal > y*/ {
+        if (mid1 <= 0 || ys[mid1-1] <= y) return new int[]{mid1-1, numhops}; 
+        else if (y < ys[mid2]) {
+          high = mid2 - 1;
+        } else {
+          high = mid1 - 1;
+          low = mid2;
+        }
+      } 
+    }
+    return new int[]{low, numhops};
+  }
 
   private static final DecimalFormat default_dformat = new DecimalFormat("0.#####");
   public static String pprint(double[][] arr){
