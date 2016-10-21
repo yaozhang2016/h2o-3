@@ -303,11 +303,11 @@ public class HistogramTest extends TestUtil {
       }
       long sum = 0;
       for (int r = 0; r < R; ++r) {
-        sum += ArrayUtils.linearSearch(vals, pts[r % N]);
+        sum += ArraySearch.linearSearch(vals, pts[r % N]);
       }
       long start = System.currentTimeMillis();
       for (int r = 0; r < R; ++r) {
-        sum += ArrayUtils.linearSearch(vals, pts[r % N]);
+        sum += ArraySearch.linearSearch(vals, pts[r % N]);
       }
       long done = System.currentTimeMillis();
       Log.info("N=" + N + " Sum:" + sum + " Time: " + PrettyPrint.msecs(done - start, true));

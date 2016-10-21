@@ -663,39 +663,6 @@ public class ArrayUtils {
       if( elem==ls[i] ) return i;
     return -1;
   }
-  // behaves like Arrays.binarySearch, but is slower -> Just good for tiny arrays (length<20)
-  public static int linearSearch(double[] vals, double v) {
-    final int N=vals.length;
-    for (int i=0; i<N; ++i) {
-      if (vals[i]==v) return i;
-      if (vals[i]>v) return -i-1;
-    }
-    return -1;
-  }
-  
-  static int _for_testing_number_of_comparisons;
-  
-  public static int gradientRangeSearch(long[] ys, long y) {
-    _for_testing_number_of_comparisons = 1;
-    int lo = 0;
-    int last = ys.length - 1;
-    int hi = last;
-    while (lo < hi) {
-      int dx = hi - lo;
-      long loVal = ys[lo];
-      long hiVal = ys[hi];
-      long dy = hiVal - loVal;
-      int mid = dy < dx ? (lo+hi)/2 : // low derivative => use binary
-          Math.max(lo, Math.min(hi-1, (int)((y - loVal)*dx/dy + lo)));
-      long midVal = ys[mid];
-      _for_testing_number_of_comparisons++;
-      if (y < midVal) hi = mid - 1;
-      else            lo = mid + 1;
-    }
-    if (y < ys[lo]) lo--;
-    while( lo < last-1 && ys[lo+1] == y) lo++;
-    return lo;
-  }
 
   private static final DecimalFormat default_dformat = new DecimalFormat("0.#####");
   public static String pprint(double[][] arr){
