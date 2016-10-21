@@ -673,40 +673,28 @@ public class ArrayUtils {
     return -1;
   }
   
-  public static int[] // for performance, return an array 
-  gradientRangeSearch(long[] ys, long y) {
-    int numhops = 0;
-    int low = 0;
+  static int _for_testing_number_of_comparisons;
+  
+  public static int gradientRangeSearch(long[] ys, long y) {
+    _for_testing_number_of_comparisons = 1;
+    int lo = 0;
     int last = ys.length - 1;
-    int high = last;
-    while (low < high) {
-      numhops++;
-//      if (y % 777 == 0) System.out.println("At " + y + ", trying " + low + " and " + high);
-      int dx = high - low;
-      long lowVal = ys[low];
-      long hiVal = ys[high];
-      int mid1 = Math.max(low, Math.min(high-1, (int)((y - lowVal)*dx/(hiVal - lowVal) + low)));
-      int mid2 = (low + high)/2;
-      long midVal = ys[mid1];
-      if (midVal <= y) {
-        if (mid1 >= last || ys[mid1+1] > y) return new int[]{mid1, numhops}; 
-        else if (y <= ys[mid2]) {
-          low = mid1 + 1;
-          high = mid2;
-        } else {
-          low = Math.max(mid2, low+1);
-        }
-      } else /*midVal > y*/ {
-        if (mid1 <= 0 || ys[mid1-1] <= y) return new int[]{mid1-1, numhops}; 
-        else if (y < ys[mid2]) {
-          high = mid2 - 1;
-        } else {
-          high = mid1 - 1;
-          low = mid2;
-        }
-      } 
+    int hi = last;
+    while (lo < hi) {
+      int dx = hi - lo;
+      long loVal = ys[lo];
+      long hiVal = ys[hi];
+      long dy = hiVal - loVal;
+      int mid = dy < dx ? (lo+hi)/2 : // low derivative => use binary
+          Math.max(lo, Math.min(hi-1, (int)((y - loVal)*dx/dy + lo)));
+      long midVal = ys[mid];
+      _for_testing_number_of_comparisons++;
+      if (y < midVal) hi = mid - 1;
+      else            lo = mid + 1;
     }
-    return new int[]{low, numhops};
+    if (y < ys[lo]) lo--;
+    while( lo < last-1 && ys[lo+1] == y) lo++;
+    return lo;
   }
 
   private static final DecimalFormat default_dformat = new DecimalFormat("0.#####");
