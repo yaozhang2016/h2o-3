@@ -125,11 +125,11 @@ public class PrettyPrint {
 
   public static double pow10(int exp){ return ((exp >= -10 && exp <= 10)?powers10[exp+10]:Math.pow(10, exp)); }
   public static long pow10i(int exp){ return ((exp > -1 && exp < 19)?powers10i[exp]:(long)Math.pow(10, exp)); }
-  public static final boolean fitsIntoInt(double d) { return Math.abs((int)d - d) < 1e-8; }
+  public static boolean fitsIntoInt(double d) { return Math.abs((int)d - d) < 1e-8; }
 
 
   // About as clumsy and random as a blaster...
-  public static String uuid( long lo, long hi ) {
+  public static String UUID( long lo, long hi ) {
     long lo0 = (lo>>32)&0xFFFFFFFFL;
     long lo1 = (lo>>16)&0xFFFFL;
     long lo2 = (lo>> 0)&0xFFFFL;
@@ -139,7 +139,7 @@ public class PrettyPrint {
   }
 
   public static String uuid(java.util.UUID uuid) {
-    return uuid == null ? "(N/A)" : uuid(uuid.getLeastSignificantBits(), uuid.getMostSignificantBits());
+    return uuid == null ? "(N/A)" : UUID(uuid.getLeastSignificantBits(), uuid.getMostSignificantBits());
   }
 
   public static String number(Chunk chk, double d, int precision) {

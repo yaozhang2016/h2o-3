@@ -368,7 +368,7 @@ public class Frame extends Lockable<Frame> {
   }
 
   /** Pair of (column name, Frame key). */
-  public static class VecSpecifier extends Iced {
+  public static class VecSpecifier extends Iced implements Vec.Holder {
     public Key<Frame> _frame;
     public String _column_name;
 
@@ -709,16 +709,12 @@ public class Frame extends Lockable<Frame> {
     if (v == null)
       return fs;
 
-    final int ncs = v.nChunks();
     _names = new String[0];
     _vecs = new Vec[0];
     _keys = makeVecKeys(0);
+
     // Bulk dumb local remove - no JMM, no ordering, no safety.
-    new MRTask() {
-      @Override public void setupLocal() {
-        for( Key k : keys ) if( k != null ) Vec.bulk_remove(k,ncs);
-      }
-    }.doAllNodes();
+    Vec.bulk_remove(keys, v.nChunks());
 
     return fs;
   }
@@ -1487,7 +1483,7 @@ public class Frame extends Lockable<Frame> {
         if(i > 0) sb.append(',');
         if(!_curChks[i].isNA(_chkRow)) {
           if( v.isCategorical() ) sb.append('"').append(v.factor(_curChks[i].at8(_chkRow))).append('"');
-          else if( v.isUUID() ) sb.append(PrettyPrint.uuid(_curChks[i].at16l(_chkRow), _curChks[i].at16h(_chkRow)));
+          else if( v.isUUID() ) sb.append(PrettyPrint.UUID(_curChks[i].at16l(_chkRow), _curChks[i].at16h(_chkRow)));
           else if( v.isInt() ) sb.append(_curChks[i].at8(_chkRow));
           else if (v.isString()) sb.append('"').append(_curChks[i].atStr(tmpStr, _chkRow)).append('"');
           else {

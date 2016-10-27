@@ -110,14 +110,13 @@ public void map( Chunk[] chks ) {                  // Map over a set of same-num
 }}</pre>
  */
 
-public abstract class Chunk extends Iced<Chunk> {
+public abstract class Chunk extends Iced<Chunk> implements Vec.Holder {
 
   public Chunk() {}
   private Chunk(byte [] bytes) {_mem = bytes;initFromBytes();}
 
   /**
    * Sparse bulk interface, stream through the compressed values and extract them into dense double array.
-   * @param vals holds extracted values, length must be >= this.sparseLen()
    * @param vals holds extracted chunk-relative row ids, length must be >= this.sparseLen()
    * @return number of extracted (non-zero) elements, equal to sparseLen()
    */
@@ -321,9 +320,7 @@ public abstract class Chunk extends Iced<Chunk> {
   /** Missing value status using chunk-relative row numbers.
    *
    *  @return true if the value is missing */
-  public final boolean isNA(int i) {
-    return _chk2 == null ?isNA_impl(i) : _chk2.isNA_impl(i);
-  }
+  public final boolean isNA(int i) { return _chk2 == null ?isNA_impl(i) : _chk2.isNA_impl(i); }
 
   /** Low half of a 128-bit UUID, or throws if the value is missing.
    *
@@ -422,6 +419,8 @@ public abstract class Chunk extends Iced<Chunk> {
    *  objects). */
   public final void set_abs(long i, String str) { long x = i-_start; if (0 <= x && x < _len) set((int) x, str); else _vec.set(i,str); }
 
+  public final void set_abs(long i, UUID uuid) { long x = i-_start; if (0 <= x && x < _len) set((int) x, uuid); else _vec.set(i,uuid); }
+
   public boolean hasFloat(){return true;}
   public boolean hasNA(){return true;}
 
@@ -434,7 +433,7 @@ public abstract class Chunk extends Iced<Chunk> {
   }
 
   public Chunk deepCopy() {
-    Chunk c2 = (Chunk)clone();
+    Chunk c2 = clone();
     c2._vec=null;
     c2._start=-1;
     c2._cidx=-1;
@@ -552,7 +551,7 @@ public abstract class Chunk extends Iced<Chunk> {
     return str;
   }
 
-  public final UUID setUUID(int idx, UUID uuid) {
+  public final UUID set(int idx, UUID uuid) {
     setWrite();
     long lo = uuid.getLeastSignificantBits();
     long hi = uuid.getMostSignificantBits();
@@ -563,17 +562,10 @@ public abstract class Chunk extends Iced<Chunk> {
     return uuid;
   }
 
-  public final Object setAny(int idx, Object x) {
-    return x == null ? setNA(idx) :
-           x instanceof String         ? set(idx, (String) x) :
-           x instanceof Double         ? set(idx, (Double)x) :
-           x instanceof Float          ? set(idx, (Float)x) :
-           x instanceof Long           ? set(idx, (Long)x) :
-           x instanceof Integer        ? set(idx, ((Integer)x).longValue()) :
-           x instanceof UUID           ? setUUID(idx, (UUID) x) :
-           x instanceof java.util.Date ? set(idx, ((java.util.Date) x).getTime()) :
-null;
-      }
+  private Object setUnknown(int idx) {
+    setNA(idx);
+    return null;
+  }
 
   /** After writing we must call close() to register the bulk changes.  If a
    *  NewChunk was needed, it will be compressed into some other kind of Chunk.
@@ -625,8 +617,8 @@ null;
   abstract boolean setNA_impl(int idx);
   boolean set_impl (int idx, String str) { throw H2O.unimpl(); }
   boolean set_impl(int i, long lo, long hi) { return false; }
-    //Zero sparse methods:
-  
+  //Zero sparse methods:
+
   /** Sparse Chunks have a significant number of zeros, and support for
    *  skipping over large runs of zeros in a row.
    *  @return true if this Chunk is sparse.  */
@@ -649,9 +641,9 @@ null;
         res[k++] = i;
     return k;
   }
-  
+
   //NA sparse methods:
-  
+
   /** Sparse Chunks have a significant number of NAs, and support for
    *  skipping over large runs of NAs in a row.
    *  @return true if this Chunk is sparseNA.  */
@@ -664,7 +656,7 @@ null;
 
   // Next non-NA. Analogous to nextNZ()
   public int nextNNA(int rid){ return rid + 1;}
-  
+
   /** Get chunk-relative indices of values (nonnas for nasparse, all for dense)
    *  stored in this chunk.  For dense chunks, this will contain indices of all
    *  the rows in this chunk.
@@ -673,7 +665,7 @@ null;
     for( int i = 0; i < _len; ++i) res[i] = i;
     return _len;
   }
-  
+
   /** Report the Chunk min-value (excluding NAs), or NaN if unknown.  Actual
    *  min can be higher than reported.  Used to short-cut RollupStats for
    *  constant and boolean chunks. */
@@ -697,8 +689,8 @@ null;
    *  Chunk, but in a highly optimized way. */
   public Chunk nextChunk( ) { return _vec.nextChunk(this); }
 
-  /** @return String version of a Chunk, currently just the class name */
-  @Override public String toString() { return getClass().getSimpleName(); }
+  /** @return String version of a Chunk, class name and range*/
+  @Override public String toString() { return getClass().getSimpleName() + "[" + _start + ".." + (_start + _len - 1) + "]"; }
 
   /** In memory size in bytes of the compressed Chunk plus embedded array. */
   public long byteSize() {
