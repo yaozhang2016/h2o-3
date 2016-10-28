@@ -5,6 +5,7 @@ import water.parser.BufferedString;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -132,4 +133,30 @@ public class StringUtils {
     return array;
   }
 
+  /**
+   * Join the array with the given delimiter, and return it as a string.
+   *
+   * @param delimiter string to be used as a separator between array elements
+   * @param arr the array to join
+   * @return a single string containing all elements in `arr` joined together
+   */
+  public static String join(String delimiter, Object[] arr) {
+    return join(delimiter, Arrays.asList(arr));
+  }
+
+  /**
+   * Join the array with the given delimiter, and return it as a string.
+   *
+   * @param delimiter string to be used as a separator between array elements
+   * @param strings the strings to join
+   * @return a single string containing all elements in `strings` joined together
+   */
+  public static String join(String delimiter, Iterable<?> strings) {
+    StringBuilder sb = new StringBuilder();
+    for (Object item : strings) {
+      if (sb.length() > 0) sb.append(delimiter);
+      sb.append(item);
+    }
+    return sb.toString();
+  }
 }
