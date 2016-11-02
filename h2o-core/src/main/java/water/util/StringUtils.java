@@ -4,10 +4,7 @@ import water.parser.BufferedString;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * String manipulation utilities.
@@ -102,7 +99,7 @@ public class StringUtils {
 
   public static String PADDING_SYMBOL = "</s>";
 
-  public static ArrayList<int[]> texts2array(ArrayList<String> texts) {
+  public static ArrayList<int[]> texts2array(List<String> texts) {
     int maxlen = 0;
     int index = 0;
     Map<String, Integer> dict = new HashMap<>();
