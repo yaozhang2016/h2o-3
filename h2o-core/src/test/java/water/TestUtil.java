@@ -21,9 +21,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.function.Consumer;
+import java.util.*;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -128,7 +126,7 @@ public class TestUtil extends Iced {
     @Override public Statement apply(Statement base, Description description) {
       String testName = description.getClassName() + "#" + description.getMethodName();
       if ((ignoreTestsNames != null && Arrays.asList(ignoreTestsNames).contains(testName)) ||
-              (doonlyTestsNames != null && !Arrays.asList(doonlyTestsNames).contains(testName))) {
+          (doonlyTestsNames != null && !Arrays.asList(doonlyTestsNames).contains(testName))) {
         // Ignored tests trump do-only tests
         Log.info("#### TEST " + testName + " IGNORED");
         return new Statement() {
@@ -590,20 +588,21 @@ public class TestUtil extends Iced {
     }
   }
 
-  static Consumer<Vec> dropit = new Consumer<Vec>() {
-    @Override public void accept(Vec v) { v.remove(new Futures()).blockForPending(); }
-  };
-
   @BeforeClass
-  public static void hi() { stall_till_cloudsize(1); }
-  @AfterClass public static void bye() { toDrop.forEach(dropit); }
+  public static void hi() {
+    stall_till_cloudsize(1);
+  }
 
-  private static Set<Vec> toDrop = new HashSet<>();
+  @Before public void enterScope() {
+    Scope.enter();
+  }
+  
+  @After public void bye() { Scope.exit(); }
 
-  protected static Vec willDrop(Vec v) { toDrop.add(v); return v; }
+  protected static Vec willDrop(Vec v) { return Scope.track(v); }
 
   protected static <T extends Vec.Holder> T willDrop(T vh) {
-    toDrop.add(vh.vec());
+    Scope.track(vh.vec());
     return vh;
   }
 }
