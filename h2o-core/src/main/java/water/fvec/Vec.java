@@ -282,7 +282,7 @@ public class Vec extends Keyed<Vec> {
   boolean isSmall() { return length() < 1000; }
 
   /** Check that row-layouts are compatible. */
-  boolean isCompatibleWith(Vec v) {
+  public boolean isCompatibleWith(Vec v) {
     // Vecs are compatible iff they have same group and same espc (i.e. same length and same chunk-distribution)
     return Arrays.equals(espc(), v.espc()) &&
             (VectorGroup.sameGroup(this, v) || isSmall());
