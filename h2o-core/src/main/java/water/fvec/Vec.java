@@ -5,7 +5,6 @@ import water.nbhm.NonBlockingHashMap;
 import water.parser.BufferedString;
 import water.util.*;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.UUID;
@@ -209,7 +208,7 @@ public class Vec extends Keyed<Vec> {
    *  {@link #isInt}, but not vice-versa.
    *  @return true if this is an categorical column.  */
   public final boolean isCategorical() {
-    assert (_type==T_CAT && _domain!=null) || (_type!=T_CAT && _domain==null) || (_type==T_NUM && this instanceof InteractionWrappedVec);
+    assert (_type==T_CAT && _domain!=null) || (_type!=T_CAT && _domain==null) || (_type==T_NUM && this instanceof InteractionWrappedVec && _domain!=null);
     return _type==T_CAT;
   }
 
@@ -279,13 +278,11 @@ public class Vec extends Keyed<Vec> {
   /** Number of rows in chunk. Does not fetch chunk content. */
   private int chunkLen( int cidx ) { espc(); return (int) (_espc[cidx + 1] - _espc[cidx]); }
 
-  boolean isSmall() { return length() < 1000; }
-
   /** Check that row-layouts are compatible. */
   public boolean isCompatibleWith(Vec v) {
     // Vecs are compatible iff they have same group and same espc (i.e. same length and same chunk-distribution)
-    return Arrays.equals(espc(), v.espc()) &&
-            (VectorGroup.sameGroup(this, v) || isSmall());
+    return (espc() == v.espc() || Arrays.equals(_espc, v._espc)) &&
+            (VectorGroup.sameGroup(this, v) || length() < 1e3);
   }
 
   /** Default read/write behavior for Vecs.  File-backed Vecs are read-only. */
@@ -385,7 +382,7 @@ public class Vec extends Keyed<Vec> {
   }
 
   public Vec [] makeDoubles(int n, double [] values) {
-    Key<Vec> [] keys = group().addVecs(n);
+    Key [] keys = group().addVecs(n);
     Vec [] res = new Vec[n];
     for(int i = 0; i < n; ++i)
       res[i] = new Vec(keys[i],_rowLayout);
@@ -469,6 +466,18 @@ public class Vec extends Keyed<Vec> {
     Futures fs = new Futures();
     for(double d:vals)
       nc.addNum(d);
+    nc.close(fs);
+    DKV.put(v._key, v, fs);
+    fs.blockForPending();
+    return v;
+  }
+
+  public static Vec makeVec(String [] vals, Key<Vec> vecKey){
+    Vec v = new Vec(vecKey,ESPC.rowLayout(vecKey,new long[]{0,vals.length}),null, Vec.T_STR);
+    NewChunk nc = new NewChunk(v,0);
+    Futures fs = new Futures();
+    for(String s:vals)
+      nc.addStr(s);
     nc.close(fs);
     DKV.put(v._key, v, fs);
     fs.blockForPending();
@@ -1424,6 +1433,7 @@ public class Vec extends Keyed<Vec> {
         // larger than either remote or local
         local = res;
         local_espcs = res._espcs;
+        assert remote_espcs== remote._espcs; // unchanging final field
       }
     }
 

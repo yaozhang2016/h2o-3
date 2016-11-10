@@ -29,7 +29,7 @@ import static org.junit.Assert.assertTrue;
 
 @Ignore("Support for tests, but no actual tests here")
 public class TestUtil extends Iced {
-  {
+  { // need this because -ea IS NOT ALWAYS set in intellij
     ClassLoader loader = getClass().getClassLoader();
     loader.setDefaultAssertionStatus(true);
   }
@@ -127,7 +127,7 @@ public class TestUtil extends Iced {
     @Override public Statement apply(Statement base, Description description) {
       String testName = description.getClassName() + "#" + description.getMethodName();
       if ((ignoreTestsNames != null && Arrays.asList(ignoreTestsNames).contains(testName)) ||
-          (doonlyTestsNames != null && !Arrays.asList(doonlyTestsNames).contains(testName))) {
+              (doonlyTestsNames != null && !Arrays.asList(doonlyTestsNames).contains(testName))) {
         // Ignored tests trump do-only tests
         Log.info("#### TEST " + testName + " IGNORED");
         return new Statement() {
@@ -361,13 +361,101 @@ public class TestUtil extends Iced {
    *  @param domain Categorical/Factor names, mapped by the data values
    *  @param rows Data
    *  @return The Vec  */
-  public static Vec vec(String[] domain, int ...rows) { 
+  public static Vec vec(String[] domain, int ...rows) {
     Key<Vec> k = Vec.VectorGroup.VG_LEN1.addVec();
     Futures fs = new Futures();
     AppendableVec avec = new AppendableVec(k,Vec.T_NUM);
     avec.setDomain(domain);
     NewChunk chunk = new NewChunk(avec, 0);
     for( int r : rows ) chunk.addNum(r);
+    chunk.close(0, fs);
+    Vec vec = avec.layout_and_close(fs);
+    fs.blockForPending();
+    return vec;
+  }
+
+  /** A numeric Vec from an array of ints */
+  public static Vec ivec(int...rows) {
+    return vec(null, rows);
+  }
+
+  /** A categorical Vec from an array of strings */
+  public static Vec cvec(String ...rows) {
+    return cvec(null, rows);
+  }
+
+  public static Vec cvec(String[] domain, String ...rows) {
+    HashMap<String, Integer> domainMap = new HashMap<>(10);
+    ArrayList<String> domainList = new ArrayList<>(10);
+    if (domain != null) {
+      int j = 0;
+      for (String s : domain) {
+        domainMap.put(s, j++);
+        domainList.add(s);
+      }
+    }
+    int[] irows = new int[rows.length];
+    for (int i = 0, j = 0; i < rows.length; i++) {
+      String s = rows[i];
+      if (!domainMap.containsKey(s)) {
+        domainMap.put(s, j++);
+        domainList.add(s);
+      }
+      irows[i] = domainMap.get(s);
+    }
+    return vec(domainList.toArray(new String[]{}), irows);
+  }
+
+  /** A numeric Vec from an array of doubles */
+  public static Vec dvec(double...rows) {
+    Key<Vec> k = Vec.VectorGroup.VG_LEN1.addVec();
+    Futures fs = new Futures();
+    AppendableVec avec = new AppendableVec(k, Vec.T_NUM);
+    NewChunk chunk = new NewChunk(avec, 0);
+    for (double r : rows)
+      chunk.addNum(r);
+    chunk.close(0, fs);
+    Vec vec = avec.layout_and_close(fs);
+    fs.blockForPending();
+    return vec;
+  }
+
+  /** A time Vec from an array of ints */
+  public static Vec tvec(int...rows) {
+    Key<Vec> k = Vec.VectorGroup.VG_LEN1.addVec();
+    Futures fs = new Futures();
+    AppendableVec avec = new AppendableVec(k, Vec.T_TIME);
+    NewChunk chunk = new NewChunk(avec, 0);
+    for (int r : rows)
+      chunk.addNum(r);
+    chunk.close(0, fs);
+    Vec vec = avec.layout_and_close(fs);
+    fs.blockForPending();
+    return vec;
+  }
+
+  /** A string Vec from an array of strings */
+  public static Vec svec(String...rows) {
+    Key<Vec> k = Vec.VectorGroup.VG_LEN1.addVec();
+    Futures fs = new Futures();
+    AppendableVec avec = new AppendableVec(k, Vec.T_STR);
+    NewChunk chunk = new NewChunk(avec, 0);
+    for (String r : rows)
+      chunk.addStr(r);
+    chunk.close(0, fs);
+    Vec vec = avec.layout_and_close(fs);
+    fs.blockForPending();
+    return vec;
+  }
+
+  /** A string Vec from an array of strings */
+  public static Vec uvec(UUID...rows) {
+    Key<Vec> k = Vec.VectorGroup.VG_LEN1.addVec();
+    Futures fs = new Futures();
+    AppendableVec avec = new AppendableVec(k, Vec.T_UUID);
+    NewChunk chunk = new NewChunk(avec, 0);
+    for (UUID r : rows)
+      chunk.addUUID(r);
     chunk.close(0, fs);
     Vec vec = avec.layout_and_close(fs);
     fs.blockForPending();
@@ -401,6 +489,43 @@ public class TestUtil extends Iced {
     for(int i = 0; i < expecteds.length(); i++) {
       final String message = i + ": " + expecteds.at(i) + " != " + actuals.at(i) + ", chunkIds = " + expecteds.elem2ChunkIdx(i) + ", " + actuals.elem2ChunkIdx(i) + ", row in chunks = " + (i - expecteds.chunkForRow(i).start()) + ", " + (i - actuals.chunkForRow(i).start());
       assertEquals(message, expecteds.at(i), actuals.at(i), delta);
+    }
+  }
+
+  public static void assertUUIDVecEquals(Vec expecteds, Vec actuals) {
+    assertEquals(expecteds.length(), actuals.length());
+    assertEquals("Vec types match", expecteds.get_type_str(), actuals.get_type_str());
+    for(int i = 0; i < expecteds.length(); i++) {
+      UUID expected = new UUID(expecteds.at16l(i), expecteds.at16h(i));
+      UUID actual = new UUID(actuals.at16l(i), actuals.at16h(i));
+      final String message = i + ": " + expected + " != " + actual + ", chunkIds = " + expecteds.elem2ChunkIdx(i) + ", " + actuals.elem2ChunkIdx(i) + ", row in chunks = " + (i - expecteds.chunkForRow(i).start()) + ", " + (i - actuals.chunkForRow(i).start());
+      assertEquals(message, expected, actual);
+    }
+  }
+
+  private static String toStr(BufferedString bs) { return bs != null ? bs.toString() : null; }
+
+  public static void assertStringVecEquals(Vec expecteds, Vec actuals) {
+    assertEquals(expecteds.length(), actuals.length());
+    assertEquals("Vec types match", expecteds.get_type_str(), actuals.get_type_str());
+    for(int i = 0; i < expecteds.length(); i++) {
+      String expected = toStr(expecteds.atStr(new BufferedString(), i));
+      String actual = toStr(actuals.atStr(new BufferedString(), i));
+      final String message = i + ": " + expected + " != " + actual + ", chunkIds = " + expecteds.elem2ChunkIdx(i) + ", " + actuals.elem2ChunkIdx(i) + ", row in chunks = " + (i - expecteds.chunkForRow(i).start()) + ", " + (i - actuals.chunkForRow(i).start());
+      assertEquals(message, expected, actual);
+    }
+  }
+
+  private static String getFactorAsString(Vec v, long row) { return v.isNA(row) ? null : v.factor((long) v.at(row)); }
+
+  public static void assertCatVecEquals(Vec expecteds, Vec actuals) {
+    assertEquals(expecteds.length(), actuals.length());
+    assertEquals("Vec types match", expecteds.get_type_str(), actuals.get_type_str());
+    for(int i = 0; i < expecteds.length(); i++) {
+      String expected = getFactorAsString(expecteds, i);
+      String actual = getFactorAsString(actuals, i);
+      final String message = i + ": " + expected + " != " + actual + ", chunkIds = " + expecteds.elem2ChunkIdx(i) + ", " + actuals.elem2ChunkIdx(i) + ", row in chunks = " + (i - expecteds.chunkForRow(i).start()) + ", " + (i - actuals.chunkForRow(i).start());
+      assertEquals(message, expected, actual);
     }
   }
 
